@@ -1,4 +1,5 @@
 import { SuiClient, getFullnodeUrl, type MoveValue, type SuiTransactionBlockResponse } from "@mysten/sui/client";
+import { getFaucetHost, requestSuiFromFaucetV0 } from "@mysten/sui/faucet";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
@@ -72,6 +73,16 @@ async function getCounter(counterObjectId: string) {
 }
 
 async function incrementCounter(counterObjectId: string) {
+  /* experiment with using a new keypair to mutate a permissionless shared object */
+  const newKeypair = new Ed25519Keypair();
+  const address = newKeypair.toSuiAddress();
+
+  await requestSuiFromFaucetV0({
+    host: getFaucetHost('devnet'),
+    recipient: address,
+  });
+  /* end */
+
   const tx = new Transaction();
 
   tx.moveCall({
@@ -81,7 +92,7 @@ async function incrementCounter(counterObjectId: string) {
 
   const result: SuiTransactionBlockResponse = await suiClient.signAndExecuteTransaction({
     transaction: tx,
-    signer: keypair,
+    signer: newKeypair,
     options: {
       showEvents: true,
       showEffects: true,
@@ -97,7 +108,7 @@ async function setCounterValue(counterObjectId: string, value: number) {
   const tx = new Transaction();
 
   tx.moveCall({
-    arguments: [tx.object(counterObjectId), tx.pure.u256(value)],
+    arguments: [tx.object(counterObjectId), tx.pure.u64(value)],
     target: `${counterPackageId}::counter::set_value`,
   });
 
